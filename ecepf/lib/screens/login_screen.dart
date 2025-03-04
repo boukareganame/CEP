@@ -25,13 +25,13 @@ class _LoginScreenState extends State<LoginScreen> {
       String? role = await AuthService.getUserRole();
       if (role != null) {
         if (role == "eleve") {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/eleveHome');
         } else if (role == "enseignant") {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/enseignantHome');
         } else if (role == "parent") {
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          Navigator.pushReplacementNamed(context, '/home');
+          Navigator.pushReplacementNamed(context, '/parentHome');
+        } else if(role == "admin") {
+          Navigator.pushReplacementNamed(context, '/adminHome');
         }
       } else {
         setState(() {

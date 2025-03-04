@@ -4,6 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/admin_home.dart';
+import 'screens/eleve_home.dart';
+import 'screens/enseignant_home.dart';
+import 'screens/parent_home.dart';
 import 'services/auth_service.dart';
 
 void main() async {
@@ -23,9 +27,13 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(primarySwatch: Colors.blue),
       initialRoute: isLoggedIn ? '/home' : '/',
       routes: {
-        '/': (context) => LoginScreen(),
+        '/': (context) => ParentHome(),
         '/register': (context) => RegisterScreen(),
         '/home': (context) => HomeScreen(),
+        '/eleveHome': (context) => EleveHome(),
+        '/enseignantHome': (context) => EnseignantHome(),
+        '/parentHome': (context) => ParentHome(),
+        '/adminHome': (context) => AdminHome(),
       },
     );
   }
