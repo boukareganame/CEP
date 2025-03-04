@@ -32,50 +32,49 @@ def user_profile(request):
     user = request.user
     return Response({
         'id': user.id,
-        'username': user.username,
         'email': user.email,
     })
 
 
-class RegisterView(CreateAPIView):
-    queryset = User.objects.all()
+class RegisterView(generics.CreateAPIView):
+    queryset = CustomUser.objects.all()
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
         print("Données reçues :", request.data)
         serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
-            self.perform_create(serializer)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            user = serializer.save() #Modification ici.
+            token, created = Token.objects.get_or_create(user=user)
+            response_data = serializer.data
+            response_data['token'] = token.key
+            return Response(response_data, status=status.HTTP_201_CREATED)
         else:
-            print("Erreurs du serializer :", serializer.errors)  # ✅ Affiche les erreurs
+            print("Erreurs du serializer :", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        response = super().create(request, *args, **kwargs)
-        user = User.objects.get(username=request.data["username"])
-        token, created = Token.objects.get_or_create(user=user)
-        response.data["token"] = token.key  # Ajoute le token à la réponse
-        return response
 
 
 
 class LoginView(APIView):
     def post(self, request):
-        print("Données reçues:", json.dumps(request.data, indent=4))  # 🟢 Ajoute ceci pour voir les données reçues
-
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.validated_data["user"]
-            login(request, user)
-            return Response({"message": "Connexion réussie"}, status=status.HTTP_200_OK)
-        
-        print("Erreurs de validation:", serializer.errors)  # 🟠 Afficher les erreurs du serializer
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            email = serializer.validated_data['email']
+            password = serializer.validated_data['password']
+            user = authenticate(request, username=email, password=password)
+            if user:
+                token, created = Token.objects.get_or_create(user=user)
+                return Response({'token': token.key, 'role': user.role}, status=status.HTTP_200_OK)
+            else:
+                return Response({'message': 'Email ou mot de passe incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserListView(generics.ListAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAdminUser]  # Accessible seulement aux admins
+    permission_classes = [permissions.IsAdminUser]
 
 class UserUpdateView(generics.UpdateAPIView):
     queryset = CustomUser.objects.all()

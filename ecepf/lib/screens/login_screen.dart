@@ -19,22 +19,36 @@ class _LoginScreenState extends State<LoginScreen> {
   String email = emailController.text;
   String password = passwordController.text;
 
-  bool success = await AuthService.login(email, password);
-  if (success) {
-    String? role = await AuthService.getUserRole();
-    if (role == "eleve") {
-      Navigator.pushReplacementNamed(context, '/eleveHome');
-    } else if (role == "enseignant") {
-      Navigator.pushReplacementNamed(context, '/enseignantHome');
-    } else if (role == "parent") {
-      Navigator.pushReplacementNamed(context, '/parentHome');
+  try {
+    bool success = await AuthService.login(email, password);
+    if (success) {
+      String? role = await AuthService.getUserRole();
+      if (role != null) {
+        if (role == "eleve") {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else if (role == "enseignant") {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else if (role == "parent") {
+          Navigator.pushReplacementNamed(context, '/home');
+        } else {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      } else {
+        setState(() {
+          errorMessage = "Impossible de déterminer le rôle de l'utilisateur.";
+        });
+      }
     } else {
-      Navigator.pushReplacementNamed(context, '/adminHome');
+      setState(() {
+        errorMessage = "Email ou mot de passe incorrect.";
+      });
     }
-  } else {
+  } catch (e) {
+    // Gérer les erreurs inattendues (par exemple, erreurs réseau)
     setState(() {
-      errorMessage = "Email ou mot de passe incorrect";
+      errorMessage = "Une erreur s'est produite lors de la connexion.";
     });
+    print("Erreur lors de la connexion: $e"); // Log de l'erreur pour le débogage
   }
 }
 
