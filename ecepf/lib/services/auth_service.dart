@@ -22,21 +22,44 @@ class AuthService {
     return false;
   }
 
-  static Future<bool> login(String email, String password) async {
-    final response = await http.post(
-      Uri.parse(baseUrl + 'login/'),
-      body: jsonEncode({'email': email, 'password': password}),
-      headers: {'Content-Type': 'application/json'},
-    );
+  static Future<Map<String, dynamic>?> login(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse(baseUrl + 'login/'),
+        body: jsonEncode({'email': email, 'password': password}),
+        headers: {'Content-Type': 'application/json'},
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', data['token']);
-      
-      return true;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['token']);
+        await prefs.setString('role', data['role']); // Stockage du rôle.
+        await prefs.setInt('userId', data['id']); // Stockage de l'ID de l'utilisateur.
+
+        return {
+          'token': data['token'],
+          'role': data['role'],
+          'id': data['id'], //Retourne l'ID avec les autres données.
+        };
+      } else {
+        print('Login failed: ${response.statusCode}, ${response.body}'); // Add some debugging
+        return null; // Retournez null en cas d'échec
+      }
+    } catch (e) {
+      print('Login error: $e'); // Add some debugging
+      return null;
     }
-    return false;
+  }
+
+  static Future<String?> getToken() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
+  }
+
+  static Future<String?> getRole() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('role');
   }
 
   static Future<String?> getUserRole() async {
@@ -47,11 +70,6 @@ class AuthService {
   static Future<void> saveToken(String token) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('auth_token', token);
-  }
-
-  static Future<String?> getToken() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
   }
 
   static Future<void> logout() async {

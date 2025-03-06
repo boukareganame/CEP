@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Importez shared_preferences
 import '../services/auth_service.dart';
+import '../main.dart'; // Importez le fichier main.dart pour la fonction getHomePage
+import 'eleve_home.dart';
+import 'parent_home.dart';
+import 'enseignant_home.dart';
+import './admin/admin_home.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -14,44 +20,63 @@ class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
 
   void _login() async {
-  if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
-  String email = emailController.text;
-  String password = passwordController.text;
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
 
-  try {
-    bool success = await AuthService.login(email, password);
-    if (success) {
-      String? role = await AuthService.getUserRole();
-      if (role != null) {
-        if (role == "eleve") {
-          Navigator.pushReplacementNamed(context, '/eleveHome');
-        } else if (role == "enseignant") {
-          Navigator.pushReplacementNamed(context, '/enseignantHome');
-        } else if (role == "parent") {
-          Navigator.pushReplacementNamed(context, '/parentHome');
-        } else if(role == "admin") {
-          Navigator.pushReplacementNamed(context, '/adminHome');
+    String email = emailController.text;
+    String password = passwordController.text;
+
+    try {
+      Map<String, dynamic>? responseData = await AuthService.login(email, password);
+      if (responseData != null) {
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', responseData['token']);
+        await prefs.setString('role', responseData['role']);
+
+        // Redirection basée sur le rôle
+        String role = responseData['role'];
+        Widget destination;
+        switch (role) {
+          case 'admin':
+            destination = AdminHome();
+            break;
+          case 'eleve':
+            destination = EleveHome();
+            break;
+          case 'enseignant':
+            destination = EnseignantHome();
+            break;
+          case 'parent':
+            destination = ParentHome();
+            break;
+          default:
+            destination = LoginScreen(); // Rôle inconnu, retour à la connexion
         }
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => destination,
+          ),
+        );
       } else {
         setState(() {
-          errorMessage = "Impossible de déterminer le rôle de l'utilisateur.";
+          errorMessage = "Email ou mot de passe incorrect.";
+          isLoading = false;
         });
       }
-    } else {
+    } catch (e) {
       setState(() {
-        errorMessage = "Email ou mot de passe incorrect.";
+        errorMessage = "Une erreur s'est produite lors de la connexion.";
+        isLoading = false;
       });
+      print("Erreur lors de la connexion: $e");
     }
-  } catch (e) {
-    // Gérer les erreurs inattendues (par exemple, erreurs réseau)
-    setState(() {
-      errorMessage = "Une erreur s'est produite lors de la connexion.";
-    });
-    print("Erreur lors de la connexion: $e"); // Log de l'erreur pour le débogage
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
@@ -147,4 +172,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.conf import settings
 
 # Create your models here.
 
@@ -53,3 +54,28 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+
+class Cours(models.Model):
+    titre = models.CharField(max_length=255)
+    description = models.TextField()
+    enseignant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.titre
+
+class Exercice(models.Model):
+    titre = models.CharField(max_length=255)
+    contenu = models.TextField()
+    cours = models.ForeignKey(Cours, on_delete=models.CASCADE, related_name="exercices")
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.titre
+
+class Eleve(models.Model):
+    enseignant = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    nom = models.CharField(max_length=100)
+    email = models.EmailField()

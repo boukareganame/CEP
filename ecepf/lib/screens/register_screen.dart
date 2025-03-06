@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import 'admin/admin_home.dart';
+import 'eleve_home.dart';
+import 'enseignant_home.dart';
+import 'parent_home.dart';
+import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -144,6 +149,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ],
     );
   }
+  
+  InputDecoration _inputDecoration(String label, IconData icon) {
+    return InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: Colors.purple.shade700),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(25)),
+      filled: true,
+      fillColor: Colors.white,
+    );
+  }
 
   // Badge de bienvenue
   Widget _showWelcomeBadge() {
@@ -167,20 +182,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         SizedBox(height: 20),
         ElevatedButton(
-          onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+          onPressed: () {
+            // Redirection basée sur le rôle
+            Widget destination;
+            switch (selectedRole) {
+              case 'admin':
+                destination = AdminHome();
+                break;
+              case 'eleve':
+                destination = EleveHome();
+                break;
+              case 'enseignant':
+                destination = EnseignantHome();
+                break;
+              case 'parent':
+                destination = ParentHome();
+                break;
+              default:
+                destination = LoginScreen(); // Rôle inconnu, retour à la connexion
+            }
+
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => destination,
+              ),
+            );
+          },
           child: Text("Continuer"),
         ),
       ],
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
-    return InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: Colors.blue.shade700),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(25)),
-      filled: true,
-      fillColor: Colors.white,
-    );
-  }
 }

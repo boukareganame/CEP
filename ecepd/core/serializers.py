@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, CustomUser
+from .models import Category, CustomUser, Cours, Exercice, Eleve
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
@@ -31,8 +31,22 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 class UserSerializer(serializers.ModelSerializer):
-    role = serializers.CharField(source='role', read_only=True) #Modification ici
-
     class Meta:
         model = CustomUser #Modification ici
         fields = ['id', 'email', 'role'] #Modification ici
+
+
+class CoursSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Cours
+        fields = '__all__'
+
+class ExerciceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Exercice
+        fields = '__all__'
+
+class EleveSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Eleve
+        fields = '_all_'

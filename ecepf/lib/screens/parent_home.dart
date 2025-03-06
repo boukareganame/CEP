@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Importez shared_preferences
 
 class ParentHome extends StatefulWidget {
   @override
@@ -20,14 +21,28 @@ class _ParentHomeState extends State<ParentHome> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  // Fonction de déconnexion
+  void _logout(BuildContext context) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('token'); // Supprimez le token
+    await prefs.remove('role'); //supprimez le role.
+    Navigator.pushReplacementNamed(context, '/login'); // Redirigez vers la page de connexion
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Accueil Parent"),
+        title: const Text("Accueil Parent"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => _logout(context), // Appelez la fonction de déconnexion
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
-          tabs: [
+          tabs: const [
             Tab(text: "Elèves"),
             Tab(text: "Progression"),
           ],
@@ -35,7 +50,7 @@ class _ParentHomeState extends State<ParentHome> with SingleTickerProviderStateM
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
+        children: const [
           Center(child: Text("Liste d'élèves")),
           Center(child: Text("Suivi de la progression")),
         ],
