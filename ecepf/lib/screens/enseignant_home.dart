@@ -1,129 +1,266 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/user_service.dart'; // Assurez-vous d'avoir UserService
+import '../services/user_service.dart';
 import '../services/cours_service.dart';
 import 'course_card.dart';
 import 'exercice_card.dart';
 import 'student_card.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 
 class EnseignantHome extends StatefulWidget {
   @override
   _EnseignantHomeState createState() => _EnseignantHomeState();
 }
 
-class _EnseignantHomeState extends State<EnseignantHome> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  List<Map<String, dynamic>> _courses = [];
-  List<Map<String, dynamic>> _exercises = [];
-  List<Map<String, dynamic>> _students = [];
-  bool _isLoading = true;
+class _EnseignantHomeState extends State<EnseignantHome> {
+  // Variables
+  List<dynamic> _courses =[];
+  List<dynamic> _exercices =[];
+  List<dynamic> _students =[];
+  List<Map<String, dynamic>> _modules =[];
+  TextEditingController _titreController = TextEditingController();
+  TextEditingController _descriptionController = TextEditingController();
+  TextEditingController _exerciseTitleController = TextEditingController();
+  TextEditingController _exerciseDescriptionController =
+      TextEditingController();
+  int? _selectedModuleId;
+  File? _videoFile;
+  File? _imageFile;
+  File? _audioFile;
+  File? _pdfFile;
+  final ImagePicker _picker = ImagePicker();
 
+  int _selectedIndex = 0; // Pour la navigation
+
+  // Fonctions d'initialisation
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
     _loadData();
+    _loadModules();
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      _isLoading = true;
-    });
     try {
-      _courses = await UserService.getTeacherCourses();
-      _exercises = await UserService.getTeacherExercises();
-      //_students = await UserService.getTeacherStudents();
+      _courses = await CoursService.getCours();
+      _exercices = await UserService.getTeacherExercises();
+      _students = await UserService.getTeacherStudents();
+      setState(() {});
     } catch (e) {
       print('Erreur lors du chargement des données: $e');
-    } finally {
+    }
+  }
+
+  Future<void> _loadModules() async {
+    try {
+      List<dynamic> modulesDynamic = await CoursService.getModules();
+      _modules = modulesDynamic.cast<Map<String, dynamic>>().toList();
+    } catch (e) {
+      print('Erreur lors du chargement des modules: $e');
+    }
+  }
+
+  // Fonctions de gestion des cours
+  Future<void> _addCourse() async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return AlertDialog(
+              title: const Text("Ajouter un cours"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: _titreController,
+                      decoration: const InputDecoration(labelText: "Titre"),
+                    ),
+                    TextField(
+                      controller: _descriptionController,
+                      decoration: const InputDecoration(labelText: "Description"),
+                    ),
+                    DropdownButtonFormField<int>(
+                      value: _selectedModuleId,
+                      items: _modules.map((module) {
+                        return DropdownMenuItem<int>(
+                          value: module['id'],
+                          child: Text(module['titre']),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedModuleId = value;
+                        });
+                      },
+                      decoration: const InputDecoration(labelText: "Module"),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => _pickFile(), // Utilisation de _pickFile
+                      child: Text('Charger un fichier'),
+                    ),
+                    // ... (aperçu ou indicateur du fichier sélectionné)
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Annuler"),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    SharedPreferences prefs =
+                        await SharedPreferences.getInstance();
+                    int? enseignantId = prefs.getInt('userId');
+                    if (enseignantId != null && _selectedModuleId != null) {
+                      try {
+                        await CoursService.addCourseWithFiles(
+                          _titreController.text,
+                          _descriptionController.text,
+                          enseignantId,
+                          _selectedModuleId!,
+                          _videoFile,
+                          _imageFile,
+                          _audioFile,
+                          _pdfFile,
+                        );
+                        _loadData();
+                        Navigator.pop(context);
+                      } catch (e) {
+                        print('Erreur lors de l\'ajout du cours: $e');
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Erreur lors de l\'ajout du cours: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    } else {
+                      print("Erreur : ID de l'enseignant ou module non trouvé.");
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text(
+                              'Erreur : ID de l\'enseignant ou module non trouvé.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: const Text("Ajouter"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _pickFile() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles();
+    if (result != null && result.files.isNotEmpty) {
+      PlatformFile file = result.files.first;
+      String extension = file.extension?.toLowerCase() ?? '';
+
       setState(() {
-        _isLoading = false;
+        if (extension == 'mp4' || extension == 'avi' || extension == 'mov') {
+          _videoFile = File(file.path!);
+        } else if (extension == 'jpg' || extension == 'jpeg' || extension == 'png') {
+          _imageFile = File(file.path!);
+        } else if (extension == 'mp3' || extension == 'wav') {
+          _audioFile = File(file.path!);
+        } else if (extension == 'pdf') {
+          _pdfFile = File(file.path!);
+        } else {
+          // Gérer les autres types de fichiers ou afficher un message d'erreur
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Type de fichier non pris en charge.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       });
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  Future<void> _deleteCourse(int courseId) async {
+    try {
+      await CoursService.deleteCourse(courseId);
+      _loadData();
+    } catch (e) {
+      print('Erreur lors de la suppression du cours: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la suppression du cours: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  void _addCourse() async {
-  TextEditingController titreController = TextEditingController();
-  TextEditingController descriptionController = TextEditingController();
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  int? enseignantId = prefs.getInt('userId');
-
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text("Ajouter un cours"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titreController, decoration: const InputDecoration(labelText: "Titre")),
-            TextField(controller: descriptionController, decoration: const InputDecoration(labelText: "Description")),
-          ],
+  Future<void> _deleteExercise(int exerciseId) async {
+    try {
+      await UserService.deleteExercise(exerciseId);
+      _loadData(); // Recharger les données après la suppression
+    } catch (e) {
+      print('Erreur lors de la suppression de l\'exercice: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors de la suppression de l\'exercice: $e'),
+          backgroundColor: Colors.red,
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
-          TextButton(
-            onPressed: () async {
-              if (enseignantId != null) {
-                try {
-                  await CoursService.addCourse(titreController.text, descriptionController.text, enseignantId);
-                  _loadData();
-                  Navigator.pop(context);
-                } catch (e) {
-                  print('Erreur lors de l\'ajout du cours: $e');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Erreur lors de l\'ajout du cours: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              } else {
-                print("Erreur : ID de l'enseignant non trouvé dans SharedPreferences.");
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Erreur : ID de l\'enseignant non trouvé. Veuillez vous reconnecter.'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-                Navigator.pop(context); // Close the dialog
-              }
-            },
-            child: const Text("Ajouter"),
-          ),
-        ],
       );
-    },
-  );
-}
+    }
+  }
 
-  void _removeCourse(int id) {
+  Future<void> _logout() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.remove('token'); // Supprimer le token
+    Navigator.pushReplacementNamed(
+        context, '/login'); // Rediriger vers la page de connexion
+  }
+
+  // Fonctions de gestion des exercices
+  Future<void> _addExercise() async {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text("Supprimer le cours"),
-          content: const Text("Êtes-vous sûr de vouloir supprimer ce cours ?"),
+          title: const Text("Ajouter un exercice"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _exerciseTitleController,
+                  decoration: const InputDecoration(labelText: "Titre"),
+                ),
+                TextField(
+                  controller: _exerciseDescriptionController,
+                  decoration: const InputDecoration(labelText: "Description"),
+                ),
+              ],
+            ),
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Annuler"),
+            ),
             TextButton(
               onPressed: () async {
-                try {
-                  await CoursService.deleteCourse(id);
-                  _loadData();
-                  Navigator.pop(context);
-                } catch (e) {
-                  print('Erreur lors de la suppression du cours: $e');
-                  // Gérez l'erreur
-                }
+                // Logique pour ajouter l'exercice (appeler le service, etc.)
+                // ...
+                Navigator.pop(context);
+                _loadData(); // Recharger les données
               },
-              child: const Text("Supprimer"),
+              child: const Text("Ajouter"),
             ),
           ],
         );
@@ -131,145 +268,132 @@ class _EnseignantHomeState extends State<EnseignantHome> with SingleTickerProvid
     );
   }
 
-void _editCourse(int index) {
-  TextEditingController subjectController = TextEditingController(text: _courses[index]["subject"]);
-  TextEditingController titleController = TextEditingController(text: _courses[index]["title"]);
-
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text("Modifier le cours"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: subjectController, decoration: const InputDecoration(labelText: "Sujet")),
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: "Titre")),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Annuler")),
-          TextButton(
-            onPressed: () async {
-              // Implémentez la logique pour mettre à jour un cours via l'API
-              // ...
-              _loadData();
-              Navigator.pop(context);
-            },
-            child: const Text("Enregistrer"),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-  void _addExercise() {
-    // Implémentez la logique pour ajouter un exercice via l'API
-    // ...
-    _loadData();
+  // Widgets d'affichage
+  Widget _buildCourseList() {
+    return ListView.builder(
+      itemCount: _courses.length,
+      itemBuilder: (context, index) {
+        return CourseCard(
+          course: _courses[index],
+          onDelete: () => _deleteCourse(_courses[index]['id']),
+        );
+      },
+    );
   }
 
-  void _removeExercise(int index) {
-    // Implémentez la logique pour supprimer un exercice via l'API
-    // ...
-    _loadData();
+  Widget _buildExerciseList() {
+    return ListView.builder(
+      itemCount: _exercices.length,
+      itemBuilder: (context, index) {
+        return ExerciceCard(
+          exercice: _exercices[index],
+          onDelete: () => _deleteExercise(_exercices[index]['id']),
+        );
+      },
+    );
   }
 
-  void _logout(BuildContext context) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('role');
-    Navigator.pushReplacementNamed(context, '/login');
+  Widget _buildStudentList() {
+    return ListView.builder(
+      itemCount: _students.length,
+      itemBuilder: (context, index) {
+        return StudentCard(student: _students[index]);
+      },
+    );
   }
 
+  // Construction de l'interface
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Accueil Enseignant"),
-        backgroundColor: Colors.teal,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _logout(context),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: Colors.white,
-          tabs: const [
-            Tab(icon: Icon(Icons.book), text: "Cours"),
-            Tab(icon: Icon(Icons.assignment), text: "Exercices"),
-            Tab(icon: Icon(Icons.people), text: "Élèves"),
+        title: const Text('Tableau de bord de l\'enseignant'),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.blue,
+              ),
+              child: Text(
+                'Menu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.class_),
+              title: Text('Cours'),
+              selected: _selectedIndex == 0,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+                Navigator.pop(context); // Ferme le drawer
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.assignment),
+              title: Text('Exercices'),
+              selected: _selectedIndex == 1,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 1;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.people),
+              title: Text('Élèves'),
+              selected: _selectedIndex == 2,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 2;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text('Déconnexion'),
+              onTap: _logout,
+            ),
           ],
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildCoursesTab(),
-                _buildExercisesTab(),
-                _buildStudentsTab(),
-              ],
-            ),
-      floatingActionButton: _tabController.index == 0
-          ? FloatingActionButton(
-              onPressed: _addCourse,
-              child: const Icon(Icons.add),
-              backgroundColor: Colors.teal,
-            )
-          : _tabController.index == 1
-              ? FloatingActionButton(
-                  onPressed: _addExercise,
-                  child: const Icon(Icons.add),
-                  backgroundColor: Colors.teal,
-                )
-              : null,
+      body: _getBodyWidget(),
+      floatingActionButton: _getFAB(),
     );
   }
 
-  Widget _buildCoursesTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ListView.builder(
-        itemCount: _courses.length,
-        itemBuilder: (context, index) {
-          return CourseCard(
-            course: _courses[index],
-            onDelete: () => _removeCourse(index),
-          );
-        },
-      ),
-    );
+  Widget _getBodyWidget() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildCourseList();
+      case 1:
+        return _buildExerciseList();
+      case 2:
+        return _buildStudentList();
+      default:
+        return _buildCourseList(); // Par défaut, afficher les cours
+    }
   }
 
-  Widget _buildExercisesTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ListView.builder(
-        itemCount: _exercises.length,
-        itemBuilder: (context, index) {
-          return ExerciseCard(
-            exercise: _exercises[index],
-            onDelete: () => _removeExercise(index),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildStudentsTab() {
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: ListView.builder(
-        itemCount: _students.length,
-        itemBuilder: (context, index) {
-          return StudentCard(student: _students[index]);
-        },
-      ),
+  Widget? _getFAB() {
+    if (_selectedIndex == 1) {
+      return FloatingActionButton(
+        onPressed: _addExercise,
+        child: const Icon(Icons.add),
+      );
+    }
+    return FloatingActionButton(
+      onPressed: _addCourse,
+      child: const Icon(Icons.add),
     );
   }
 }

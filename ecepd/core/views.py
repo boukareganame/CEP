@@ -1,8 +1,8 @@
 from django.shortcuts import render
 
 from rest_framework.response import Response
-from .models import Category, CustomUser, Cours, Exercice, Eleve
-from .serializers import CategorySerializer, RegisterSerializer, UserSerializer, LoginSerializer, CoursSerializer, ExerciceSerializer, EleveSerializer
+from .models import Category, CustomUser, Cours, Exercice, Eleve, Module, Lecon, Quiz, Question
+from .serializers import CategorySerializer, RegisterSerializer, UserSerializer, LoginSerializer, CoursSerializer, ExerciceSerializer, EleveSerializer, ModuleSerializer, LeconSerializer, QuizSerializer, QuestionSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
@@ -11,7 +11,6 @@ from django.http import JsonResponse
 import json
 from rest_framework.generics import CreateAPIView
 from rest_framework.authtoken.models import Token
-from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework import generics, permissions, viewsets, status
 # Create your views here.
@@ -63,7 +62,11 @@ class LoginView(APIView):
             user = authenticate(request, username=email, password=password)
             if user:
                 token, created = Token.objects.get_or_create(user=user)
-                return Response({'token': token.key, 'role': user.role}, status=status.HTTP_200_OK)
+                return Response({
+                    'token': token.key,
+                    'role': user.role, # Assurez-vous que le champ 'role' existe dans votre modèle CustomUser
+                    'id': user.id  # Ajoutez l'ID de l'utilisateur
+                }, status=status.HTTP_200_OK)
             else:
                 return Response({'message': 'Email ou mot de passe incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
         else:
@@ -178,4 +181,35 @@ class TeacherExerciseDeleteView(generics.DestroyAPIView):
     def get_queryset(self):
         return Exercice.objects.filter(enseigant=self.request.user)
 
+
+class CoursListView(generics.ListAPIView):
+    queryset = Cours.objects.all()
+    serializer_class = CoursSerializer
+    permission_classes = [permissions.AllowAny]  # Ou IsAuthenticated si nécessaire
+
+class CoursDetailView(generics.RetrieveAPIView):
+    queryset = Cours.objects.all()
+    serializer_class = CoursSerializer
+    permission_classes = [permissions.AllowAny]
+
+class ModuleDetailView(generics.RetrieveAPIView):
+    queryset = Module.objects.all()
+    serializer_class = ModuleSerializer
+    permission_classes = [permissions.AllowAny]
+
+class LeconDetailView(generics.RetrieveAPIView):
+    queryset = Lecon.objects.all()
+    serializer_class = LeconSerializer
+    permission_classes = [permissions.AllowAny]
+
+
+class QuizDetailView(generics.RetrieveAPIView):
+    queryset = Quiz.objects.all()
+    serializer_class = QuizSerializer
+    permission_classes = [permissions.AllowAny]
+
+class QuestionDetailView(generics.RetrieveAPIView):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
+    permission_classes = [permissions.AllowAny]
 

@@ -107,4 +107,20 @@ class UserService {
       throw Exception('Failed to load students');
     }
   }
+
+  static Future<void> deleteExercise(int exerciseId) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString('token');
+    final response = await http.delete(
+      Uri.parse('${baseUrl}exercises/$exerciseId/delete/'), // Assurez-vous que l'URL est correcte
+      headers: {
+        'Authorization': 'Token $token',
+        'Content-Type': 'application/json',
+      },
+    );
+
+    if (response.statusCode != 204) {
+      throw Exception('Failed to delete exercise');
+    }
+  }
 }

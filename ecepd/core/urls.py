@@ -16,6 +16,12 @@ from .views import (
     TeacherCourseDeleteView,
     TeacherExerciseCreateView,
     TeacherExerciseDeleteView,
+    CoursListView,
+    CoursDetailView,
+    ModuleDetailView,
+    LeconDetailView,
+    QuizDetailView,
+    QuestionDetailView
 )
 
 router = DefaultRouter()
@@ -37,4 +43,10 @@ urlpatterns = [
     path('teacher/exercises/add/', TeacherExerciseCreateView.as_view(), name='teacher-exercise-add'),
     path('teacher/exercises/<int:pk>/delete/', TeacherExerciseDeleteView.as_view(), name='teacher-exercise-delete'),
     path('', include(router.urls)),
+    path('cours/', CoursListView.as_view(), name='cours-list'),
+    path('cours/<int:pk>/', CoursDetailView.as_view(), name='cours-detail'),
+    path('modules/<int:pk>/', ModuleDetailView.as_view(), name='module-detail'),
+    path('lecons/<int:pk>/', LeconDetailView.as_view(), name='lecon-detail'),
+    path('quiz/<int:pk>/', QuizDetailView.as_view(), name='quiz-detail'),
+    path('questions/<int:pk>/', QuestionDetailView.as_view(), name='question-detail'),
 ]

@@ -1,44 +1,53 @@
+// course_list_screen.dart
 import 'package:flutter/material.dart';
-import '../services/cours_service.dart';
-import '../models/cours.dart';
+import 'cours_service.dart';
+import 'cours_detail_screen.dart';
 
-class CoursList extends StatefulWidget {
+class CourseList extends StatefulWidget {
   @override
-  _CoursListState createState() => _CoursListState();
+  _CourseListState createState() => _CourseListState();
 }
 
-class _CoursListState extends State<CoursList> {
-  late Future<List<Cours>> _cours;
+class _CourseListState extends State<CourseList> {
+  late Future<List<dynamic>> _courses;
 
   @override
   void initState() {
     super.initState();
-    _cours = CoursService().getCours();
+    _courses = CoursService.getCours();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Liste des Cours")),
-      body: FutureBuilder<List<Cours>>(
-        future: _cours,
+      appBar: AppBar(title: Text('Cours')),
+      body: FutureBuilder<List<dynamic>>(
+        future: _courses,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.hasData) {
+            return ListView.builder(
+              itemCount: snapshot.data!.length,
+              itemBuilder: (context, index) {
+                final course = snapshot.data![index];
+                return ListTile(
+                  title: Text(course['titre']),
+                  subtitle: Text(course['description']),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CoursDetailScreen(courseId: course['id']),
+                      ),
+                    );
+                  },
+                );
+              },
+            );
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else {
             return Center(child: CircularProgressIndicator());
           }
-          if (!snapshot.hasData) {
-            return Center(child: Text("Aucun cours disponible"));
-          }
-          return ListView.builder(
-            itemCount: snapshot.data!.length,
-            itemBuilder: (context, index) {
-              Cours cours = snapshot.data![index];
-              return ListTile(
-                title: Text(cours.titre),
-                subtitle: Text(cours.description),
-              );
-            },
-          );
         },
       ),
     );

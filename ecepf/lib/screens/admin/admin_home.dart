@@ -7,17 +7,16 @@ class AdminHome extends StatefulWidget {
   _AdminHomeState createState() => _AdminHomeState();
 }
 
-class _AdminHomeState extends State<AdminHome> with SingleTickerProviderStateMixin {
+class _AdminHomeState extends State<AdminHome> {
   String username = "Admin";
-  late TabController _tabController;
-  List<Map<String, dynamic>> users = [];
-  bool _isLoading = true; // Ajout d'une variable de chargement
+  List<Map<String, dynamic>> users =;
+  bool _isLoading = true;
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
-    _tabController = TabController(length: 4, vsync: this);
     _loadUsers();
   }
 
@@ -31,12 +30,12 @@ class _AdminHomeState extends State<AdminHome> with SingleTickerProviderStateMix
   void _logout() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-    Navigator.pushReplacementNamed(context, '/');
+    Navigator.pushReplacementNamed(context, '/login');
   }
 
   Future<void> _loadUsers() async {
     setState(() {
-      _isLoading = true; // Début du chargement
+      _isLoading = true;
     });
     try {
       users = await UserService.getUsers();
@@ -47,87 +46,14 @@ class _AdminHomeState extends State<AdminHome> with SingleTickerProviderStateMix
       );
     } finally {
       setState(() {
-        _isLoading = false; // Fin du chargement
+        _isLoading = false;
       });
     }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Tableau de bord Admin"),
-        backgroundColor: Colors.deepOrange,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: "Dashboard"),
-            Tab(text: "Utilisateurs"),
-            Tab(text: "Statistiques"),
-            Tab(text: "Support"),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator()) // Afficher le chargement
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildDashboard(),
-                _buildUsersList(),
-                _buildStatistics(),
-                _buildSupport(),
-              ],
-            ),
-    );
-  }
-
-  Widget _buildDashboard() {
-    return Container(
-      color: Colors.grey[100],
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("Bienvenue, $username!", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 20),
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              children: [
-                _buildCard("Utilisateurs", Icons.people, Colors.blue, () {
-                  _tabController.animateTo(1);
-                }),
-                _buildCard("Statistiques", Icons.bar_chart, Colors.green, () {
-                  _tabController.animateTo(2);
-                }),
-                _buildCard("Support", Icons.help_outline, Colors.red, () {
-                  _tabController.animateTo(3);
-                }),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _editUser(int index) async {
-    TextEditingController emailController = TextEditingController(text: users[index]["email"]);
+    TextEditingController emailController =
+        TextEditingController(text: users[index]["email"]);
     String role = users[index]["role"];
 
     showDialog(
@@ -202,6 +128,46 @@ class _AdminHomeState extends State<AdminHome> with SingleTickerProviderStateMix
     }
   }
 
+  // Widgets d'affichage
+  Widget _buildDashboard() {
+    return Container(
+      color: Colors.grey[100],
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Bienvenue, $username!",
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 20),
+          Expanded(
+            child: GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              children: [
+                _buildCard("Utilisateurs", Icons.people, Colors.blue, () {
+                  setState(() {
+                    _selectedIndex = 1;
+                  });
+                }),
+                _buildCard("Statistiques", Icons.bar_chart, Colors.green, () {
+                  setState(() {
+                    _selectedIndex = 2;
+                  });
+                }),
+                _buildCard("Support", Icons.help_outline, Colors.red, () {
+                  setState(() {
+                    _selectedIndex = 3;
+                  });
+                }),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildUsersList() {
     return Container(
       color: Colors.grey[200],
@@ -213,7 +179,8 @@ class _AdminHomeState extends State<AdminHome> with SingleTickerProviderStateMix
             margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: ListTile(
               leading: const Icon(Icons.person, color: Colors.blue),
-              title: Text(users[index]["email"]!, style: const TextStyle(fontWeight: FontWeight.bold)),
+              title: Text(users[index]["email"]!,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text("Rôle : ${users[index]["role"]}"),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -247,7 +214,9 @@ class _AdminHomeState extends State<AdminHome> with SingleTickerProviderStateMix
           children: [
             Icon(icon, size: 40, color: color),
             const SizedBox(height: 10),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(title,
+                style: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -260,5 +229,102 @@ class _AdminHomeState extends State<AdminHome> with SingleTickerProviderStateMix
 
   Widget _buildSupport() {
     return const Center(child: Text("Support"));
+  }
+
+  Widget _getBodyWidget() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    switch (_selectedIndex) {
+      case 0:
+        return _buildDashboard();
+      case 1:
+        return _buildUsersList();
+      case 2:
+        return _buildStatistics();
+      case 3:
+        return _buildSupport();
+      default:
+        return _buildDashboard();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Tableau de bord Admin"),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: <Widget>[
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Colors.deepOrange,
+              ),
+              child: Text(
+                'Menu',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: Icon(Icons.dashboard),
+              title: Text('Dashboard'),
+              selected: _selectedIndex == 0,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 0;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.people),
+              title: Text('Utilisateurs'),
+              selected: _selectedIndex == 1,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 1;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.bar_chart),
+              title: Text('Statistiques'),
+              selected: _selectedIndex == 2,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 2;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.help_outline),
+              title: Text('Support'),
+              selected: _selectedIndex == 3,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 3;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.logout),
+              title: Text('Déconnexion'),
+              onTap: _logout,
+            ),
+          ],
+        ),
+      ),
+      body: _getBodyWidget(),
+    );
   }
 }

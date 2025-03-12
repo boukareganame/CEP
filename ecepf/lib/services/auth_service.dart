@@ -29,25 +29,30 @@ class AuthService {
         body: jsonEncode({'email': email, 'password': password}),
         headers: {'Content-Type': 'application/json'},
       );
+      print('Raw login response: ${response.body}');
+      final data = jsonDecode(response.body);
+      print('Parsed login data: $data');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', data['token']);
-        await prefs.setString('role', data['role']); // Stockage du rôle.
-        await prefs.setInt('userId', data['id']); // Stockage de l'ID de l'utilisateur.
+        await prefs.setString('role', data['role']);
+        await prefs.setInt('userId', data['id']);
+        print('User ID stored: ${data['id']}');
+        
 
         return {
           'token': data['token'],
           'role': data['role'],
-          'id': data['id'], //Retourne l'ID avec les autres données.
+          'id': data['id'],
         };
       } else {
-        print('Login failed: ${response.statusCode}, ${response.body}'); // Add some debugging
-        return null; // Retournez null en cas d'échec
+        print('Login failed: ${response.statusCode}, ${response.body}');
+        return null;
       }
     } catch (e) {
-      print('Login error: $e'); // Add some debugging
+      print('Login error: $e');
       return null;
     }
   }
