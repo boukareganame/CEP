@@ -6,7 +6,7 @@ import '../models/cours.dart';
 import 'dart:io';
 
 class CoursService {
-  final String baseUrl = "http://127.0.0.1:8000/api/";
+  final String baseUrl = "http://127.0.0.1:8000/api";
 
   static Future<List<dynamic>> getCours() async {
     final response = await http.get(Uri.parse('http://127.0.0.1:8000/api/cours/'));
@@ -26,7 +26,7 @@ class CoursService {
         'Authorization': 'Token $token',
         'Content-Type': 'application/json',
       },
-      body: jsonEncode({'titre': titre, 'description': description, 'enseignant': enseignantId}), // Modification ici
+      body: jsonEncode({'titre': titre, 'description': description, 'enseignant': enseignantId}),
     );
 
     if (response.statusCode != 201) {

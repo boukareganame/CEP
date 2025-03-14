@@ -170,6 +170,16 @@ class _EleveHomeState extends State<EleveHome> {
               },
             ),
             ListTile(
+              leading: Icon(Icons.notifications),
+              title: Text('Notifications'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                );
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.logout),
               title: Text('Déconnexion'),
               onTap: _logout,

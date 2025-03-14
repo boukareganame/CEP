@@ -101,6 +101,16 @@ class _ParentHomeState extends State<ParentHome> {
               },
             ),
             ListTile(
+              leading: Icon(Icons.notifications),
+              title: Text('Notifications'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                );
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.logout),
               title: Text('Déconnexion'),
               onTap: _logout,

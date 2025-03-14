@@ -80,14 +80,11 @@ class Eleve(models.Model):
     nom = models.CharField(max_length=100)
     email = models.EmailField()
 
-# core/models.py
-from django.db import models
-from django.conf import settings
+
 
 class Module(models.Model):
     titre = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    cours = models.ForeignKey('Cours', on_delete=models.CASCADE, related_name='modules')
 
     def __str__(self):
         return self.titre
@@ -122,3 +119,15 @@ class Question(models.Model):
 
     def __str__(self):
         return self.texte
+
+
+class Notification(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    notification_type = models.CharField(max_length=50)  # Ajout de type de notification
+    sender = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='sent_notifications') #Ajout d'un émetteur.
+
+    def __str__(self):
+        return f"Notification pour {self.user.username} - {self.timestamp}"

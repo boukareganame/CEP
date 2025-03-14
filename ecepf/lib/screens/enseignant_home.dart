@@ -359,6 +359,16 @@ class _EnseignantHomeState extends State<EnseignantHome> {
               },
             ),
             ListTile(
+              leading: Icon(Icons.notifications),
+              title: Text('Notifications'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                );
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.logout),
               title: Text('Déconnexion'),
               onTap: _logout,

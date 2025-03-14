@@ -1,5 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
+from . import views
 from .views import (
     category_list,
     user_profile,
@@ -10,8 +11,6 @@ from .views import (
     LoginView,
     CoursViewSet,
     ExerciceViewSet,
-    TeacherCourseListView,
-    TeacherExerciseListView,
     TeacherCourseCreateView,
     TeacherCourseDeleteView,
     TeacherExerciseCreateView,
@@ -21,12 +20,14 @@ from .views import (
     ModuleDetailView,
     LeconDetailView,
     QuizDetailView,
-    QuestionDetailView
+    QuestionDetailView,
+    MarkNotificationAsRead
 )
 
 router = DefaultRouter()
 router.register(r'cours', CoursViewSet, basename='cours')
 router.register(r'exercices', ExerciceViewSet, basename='exercice')
+router.register(r'notifications', NotificationViewSet, basename='notification')
 
 urlpatterns = [
     path('categories/', category_list, name='category_list'),
@@ -36,10 +37,10 @@ urlpatterns = [
     path('users/', UserListView.as_view(), name='user-list'),
     path('users/<int:pk>/', UserUpdateView.as_view(), name='user-update'),
     path('users/<int:pk>/delete/', UserDeleteView.as_view(), name='user-delete'),
-    path('teacher/courses/', TeacherCourseListView.as_view(), name='teacher-course-list'),
+    #path('teacher/courses/', TeacherCourseListView.as_view(), name='teacher-course-list'),
     path('teacher/courses/add/', TeacherCourseCreateView.as_view(), name='teacher-course-add'),
     path('teacher/courses/<int:pk>/delete/', TeacherCourseDeleteView.as_view(), name='teacher-course-delete'),
-    path('teacher/exercises/', TeacherExerciseListView.as_view(), name='teacher-exercise-list'),
+    #path('teacher/exercises/', TeacherExerciseListView.as_view(), name='teacher-exercise-list'),
     path('teacher/exercises/add/', TeacherExerciseCreateView.as_view(), name='teacher-exercise-add'),
     path('teacher/exercises/<int:pk>/delete/', TeacherExerciseDeleteView.as_view(), name='teacher-exercise-delete'),
     path('', include(router.urls)),
@@ -49,4 +50,8 @@ urlpatterns = [
     path('lecons/<int:pk>/', LeconDetailView.as_view(), name='lecon-detail'),
     path('quiz/<int:pk>/', QuizDetailView.as_view(), name='quiz-detail'),
     path('questions/<int:pk>/', QuestionDetailView.as_view(), name='question-detail'),
+    path('modules/', views.ModuleList.as_view(), name='module-list'),
+    path('modulescreate/', views.ModuleCreate.as_view(), name='module-create'),
+    path('notifications/<int:pk>/read/', MarkNotificationAsRead.as_view(), name='notification-read'),
+
 ]

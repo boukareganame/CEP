@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../services/user_service.dart';
+import '../../services/module_service.dart';
+import '../../models/module.dart';
 
 class AdminHome extends StatefulWidget {
   @override
@@ -8,22 +12,28 @@ class AdminHome extends StatefulWidget {
 }
 
 class _AdminHomeState extends State<AdminHome> {
+  final String baseUrl = "http://127.0.0.1:8000/api";
   String username = "Admin";
-  List<Map<String, dynamic>> users =;
+  List<Map<String, dynamic>> users = [];
   bool _isLoading = true;
   int _selectedIndex = 0;
+  List<Module> _modules = [];
+  List<dynamic> cours = [];
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
     _loadUsers();
+    _loadModules();
+    _loadCours(null);
   }
 
   void _loadUserInfo() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      username = prefs.getString("username") ?? "Admin";
+      username = prefs.getString("email") ?? "Admin";
     });
   }
 
@@ -44,6 +54,51 @@ class _AdminHomeState extends State<AdminHome> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur de chargement: $e')),
       );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadCours(int? moduleId) async {
+    setState(() {
+      _isLoading = true;
+    });
+    String url = '$baseUrl/cours/';
+    if (moduleId != null) {
+      url += '?module=$moduleId';
+    }
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token');
+      print('Le token est bien recupéré: $token');
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+          },
+      );
+      if (response.statusCode == 200) {
+        setState(() {
+          cours = json.decode(response.body);
+        });
+      } else {
+        // Gestion de l'erreur spécifique pour les cours
+        print('Erreur lors du chargement des cours: ${response.statusCode} - ${response.body}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur de chargement des cours: ${response.statusCode}')),
+        );
+        throw Exception('Erreur lors du chargement des cours: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Gestion de l'erreur générale
+      print('Erreur lors du chargement des cours: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur de chargement des cours: $e')),
+      );
+      throw Exception('Erreur lors du chargement des cours: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -128,7 +183,77 @@ class _AdminHomeState extends State<AdminHome> {
     }
   }
 
-  // Widgets d'affichage
+  void _addModule() {
+    TextEditingController titleController = TextEditingController();
+    TextEditingController descriptionController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Ajouter un module'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Titre'),
+              ),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(labelText: 'Description'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await ModuleService.addModule(
+                    titleController.text,
+                    descriptionController.text,
+                  );
+                  _loadModules();
+                  Navigator.pop(context);
+                } catch (e) {
+                  print('Erreur lors de l\'ajout du module: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erreur d\'ajout: $e')),
+                  );
+                }
+              },
+              child: const Text('Ajouter'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _loadModules() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      _modules = await ModuleService.getModules();
+    } catch (e) {
+      print('Erreur lors du chargement des modules: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur de chargement: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   Widget _buildDashboard() {
     return Container(
       color: Colors.grey[100],
@@ -169,63 +294,139 @@ class _AdminHomeState extends State<AdminHome> {
   }
 
   Widget _buildUsersList() {
-    return Container(
-      color: Colors.grey[200],
-      child: ListView.builder(
-        itemCount: users.length,
-        itemBuilder: (context, index) {
-          return Card(
-            elevation: 3,
-            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            child: ListTile(
-              leading: const Icon(Icons.person, color: Colors.blue),
-              title: Text(users[index]["email"]!,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Text("Rôle : ${users[index]["role"]}"),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.green),
-                    onPressed: () => _editUser(index),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteUser(index),
-                  ),
-                ],
-              ),
+    List<Map<String, dynamic>> filteredUsers = users.where((user) =>
+        user['email'].toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        user['role'].toLowerCase().contains(_searchQuery.toLowerCase())
+    ).toList();
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: TextField(
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+            decoration: const InputDecoration(
+              labelText: 'Rechercher un utilisateur',
+              prefixIcon: Icon(Icons.search),
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildCard(String title, IconData icon, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        color: Colors.white,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: color),
-            const SizedBox(height: 10),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
-          ],
+          ),
         ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: filteredUsers.length,
+            itemBuilder: (context, index) {
+              return Card(
+                elevation: 3,
+                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                child: ListTile(
+                  leading: const Icon(Icons.person, color: Colors.blue),
+                  title: Text(filteredUsers[index]["email"]!,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text("Rôle : ${filteredUsers[index]["role"]}"),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.green),
+                        onPressed: () => _editUser(index),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteUser(index),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCoursFilterBar() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ElevatedButton(
+            onPressed: () => _loadCours(null),
+            child: const Text('Tout'),
+          ),
+          const SizedBox(width: 8),
+          ..._modules.map((module) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: ElevatedButton(
+                onPressed: () => _loadCours(module.id),
+                child: Text(module.title),
+              ),
+            );
+          }).toList(),
+        ],
       ),
     );
   }
 
-  Widget _buildStatistics() {
-    return const Center(child: Text("Statistiques"));
+  Widget _buildCoursList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        _buildCoursFilterBar(),
+        Expanded(
+          child: ListView.builder(
+            itemCount: cours.length,
+            itemBuilder: (context, index) {
+              final course = cours[index];
+              return Card(
+                elevation: 3,
+                margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                child: ListTile(
+                  leading: const Icon(Icons.book, color: Colors.blue),
+                  title: Text(course['titre'] ?? 'Titre inconnu',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Text(course['description'] ?? 'Description inconnue'),
+                  // Ajoutez ici d'autres informations sur le cours
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
+
+    Widget _buildCard(String title, IconData icon, Color color, VoidCallback onTap) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          color: Colors.white,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 40, color: color),
+              const SizedBox(height: 10),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    Widget _buildStatistics() {
+      return const Center(child: Text("Statistiques"));
+    }
 
   Widget _buildSupport() {
     return const Center(child: Text("Support"));
@@ -245,9 +446,54 @@ class _AdminHomeState extends State<AdminHome> {
         return _buildStatistics();
       case 3:
         return _buildSupport();
+      case 4:
+        return _buildModulesList();
+      case 5:
+        return _buildCoursList();
       default:
         return _buildDashboard();
     }
+  }
+
+  Widget _buildModulesList() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Container(
+      color: Colors.grey[300],
+      child: ListView.builder(
+        itemCount: _modules.length,
+        itemBuilder: (context, index) {
+          Module module = _modules[index];
+          return Card(
+            elevation: 3,
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            child: ListTile(
+              leading: const Icon(Icons.folder, color: Colors.orange),
+              title: Text(module.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: Text(module.description),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.green),
+                    onPressed: () {
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -317,6 +563,38 @@ class _AdminHomeState extends State<AdminHome> {
               },
             ),
             ListTile(
+              leading: Icon(Icons.class_),
+              title: Text('Modules'),
+              selected: _selectedIndex == 4,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 4;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.book),
+              title: Text('Cours'),
+              selected: _selectedIndex == 5,
+              onTap: () {
+                setState(() {
+                  _selectedIndex = 5;
+                });
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.notifications),
+              title: Text('Notifications'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => NotificationsScreen()),
+                );
+              },
+            ),
+            ListTile(
               leading: Icon(Icons.logout),
               title: Text('Déconnexion'),
               onTap: _logout,
@@ -325,6 +603,14 @@ class _AdminHomeState extends State<AdminHome> {
         ),
       ),
       body: _getBodyWidget(),
+      floatingActionButton: _selectedIndex == 4
+          ? FloatingActionButton(
+            onPressed: () {
+              _addModule();
+            },
+            child: const Icon(Icons.add),
+          )
+          : null,
     );
   }
 }

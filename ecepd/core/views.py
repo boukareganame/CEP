@@ -1,8 +1,8 @@
 from django.shortcuts import render
 
 from rest_framework.response import Response
-from .models import Category, CustomUser, Cours, Exercice, Eleve, Module, Lecon, Quiz, Question
-from .serializers import CategorySerializer, RegisterSerializer, UserSerializer, LoginSerializer, CoursSerializer, ExerciceSerializer, EleveSerializer, ModuleSerializer, LeconSerializer, QuizSerializer, QuestionSerializer
+from .models import Category, CustomUser, Cours, Exercice, Eleve, Module, Lecon, Quiz, Question, Notification
+from .serializers import CategorySerializer, RegisterSerializer, UserSerializer, LoginSerializer, CoursSerializer, ExerciceSerializer, EleveSerializer, ModuleSerializer, LeconSerializer, QuizSerializer, QuestionSerializer, NotificationSerializer
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User
@@ -12,10 +12,12 @@ import json
 from rest_framework.generics import CreateAPIView
 from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
-from rest_framework import generics, permissions, viewsets, status
-# Create your views here.
+from rest_framework import generics, permissions, viewsets, status, filters
+from django_filters.rest_framework import DjangoFilterBackend
+
 
 User = get_user_model()
+
 
 @api_view(['GET'])
 def category_list(request):
@@ -64,8 +66,8 @@ class LoginView(APIView):
                 token, created = Token.objects.get_or_create(user=user)
                 return Response({
                     'token': token.key,
-                    'role': user.role, # Assurez-vous que le champ 'role' existe dans votre modèle CustomUser
-                    'id': user.id  # Ajoutez l'ID de l'utilisateur
+                    'role': user.role,
+                    'id': user.id
                 }, status=status.HTTP_200_OK)
             else:
                 return Response({'message': 'Email ou mot de passe incorrect'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -93,54 +95,41 @@ class UserDeleteView(generics.DestroyAPIView):
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAdminUser]
 
-from rest_framework import viewsets, permissions
 
 class CoursViewSet(viewsets.ModelViewSet):
     serializer_class = CoursSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['module']
+    search_fields = ['titre', 'description']
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_staff:  # Admins voient tous les cours
+        if user.is_staff:
             return Cours.objects.all()
-        return Cours.objects.filter(enseignant=user)  # Enseignants voient leurs propres cours
+        return Cours.objects.filter(enseignant=user)
 
     def perform_create(self, serializer):
-        serializer.save(enseignant=self.request.user)  # Associer le cours à l'enseignant connecté
+        serializer.save(enseignant=self.request.user)
+
 
 class ExerciceViewSet(viewsets.ModelViewSet):
     serializer_class = ExerciceSerializer
     permission_classes = [permissions.IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = ['cours__module']
+    search_fields = ['titre', 'description']
 
     def get_queryset(self):
-        return Exercice.objects.all()
+        user = self.request.user
+        if user.is_staff:
+            return Exercice.objects.all()
+        return Exercice.objects.filter(cours__enseignant=user)
 
-class TeacherCourseListView(generics.ListAPIView):
-    serializer_class = CoursSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        teacher = self.request.user
-        return Cours.objects.filter(enseignant=teacher) # Modification ici
+    def perform_create(self, serializer):
+        serializer.save(cours__enseignant=self.request.user)
 
 
-
-class TeacherExerciseListView(generics.ListAPIView):
-    serializer_class = ExerciceSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        teacher = self.request.user
-        return Exercice.objects.filter(enseignant=teacher) # Modification ici
-
-# core/views.py
-class TeacherExerciseListView(generics.ListAPIView):
-    serializer_class = ExerciceSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        teacher = self.request.user
-        return Exercice.objects.filter(cours__enseignant=teacher) #Modify here
 
 class TeacherStudentListView(generics.ListAPIView):
     serializer_class = EleveSerializer
@@ -171,7 +160,7 @@ class TeacherExerciseCreateView(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(cours__enseignant=self.request.user) #change here, if needed.
+        serializer.save(cours__enseignant=self.request.user)
 
 class TeacherExerciseDeleteView(generics.DestroyAPIView):
     queryset = Exercice.objects.all()
@@ -185,7 +174,7 @@ class TeacherExerciseDeleteView(generics.DestroyAPIView):
 class CoursListView(generics.ListAPIView):
     queryset = Cours.objects.all()
     serializer_class = CoursSerializer
-    permission_classes = [permissions.AllowAny]  # Ou IsAuthenticated si nécessaire
+    permission_classes = [permissions.AllowAny]
 
 class CoursDetailView(generics.RetrieveAPIView):
     queryset = Cours.objects.all()
@@ -213,3 +202,30 @@ class QuestionDetailView(generics.RetrieveAPIView):
     serializer_class = QuestionSerializer
     permission_classes = [permissions.AllowAny]
 
+
+
+class ModuleList(generics.ListAPIView):
+    queryset = Module.objects.all()
+    serializer_class = ModuleSerializer
+
+class ModuleCreate(generics.CreateAPIView):
+    queryset = Module.objects.all()
+    serializer_class = ModuleSerializer
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user).order_by('-timestamp')
+
+class MarkNotificationAsRead(generics.UpdateAPIView):
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_read = True
+        instance.save()
+        return self.retrieve(request, *args, **kwargs)

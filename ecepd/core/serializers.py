@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, CustomUser, Cours, Exercice, Eleve, Module, Lecon, Quiz, Question
+from .models import Category, CustomUser, Cours, Exercice, Eleve, Module, Lecon, Quiz, Question, Notification
 from django.contrib.auth import get_user_model
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate
@@ -78,4 +78,14 @@ class QuizSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Quiz
+        fields = '__all__'
+
+class ModuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Module
+        fields = '__all__'
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
         fields = '__all__'
